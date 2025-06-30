@@ -1,27 +1,36 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <termios.h>
+#include <unistd.h>
 
-int main(int argc, char *argv[]) {
-    FILE *file = fopen("text.txt", "a+"); 
+struct termios original_termios;
 
-    if (file == NULL) {
-        printf("Could not open file!\n");
-    } else {
-        printf("File opened!\n");
-    }
+void disable_raw_mode() {
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_termios);
+}
 
-    fseek(file, 0, SEEK_END);
-    long length = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    char *buffer = malloc(length);
-
-    if (buffer) {
-        fread(buffer, sizeof(char), length, file);
-    }
-
-    printf("%s", buffer);
-
-    fclose(file);
+void enable_raw_mode() {
+    tcgetattr(STDIN_FILENO, &original_termios);
+    atexit(disable_raw_mode);
     
+    struct termios raw = original_termios;
+    raw.c_lflag &= ~(ECHO | ICANON);
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
+int main() {
+    enable_raw_mode();
+    
+    char c;
+    while (read(STDIN_FILENO, &c, 1) && c != 'q') {
+        if (iscntrl(c)) {
+            printf("%d\n", c);
+        } else {
+            printf("%d ('%c')\n", c, c);
+        }
+    }
+
     return 0;
 }
